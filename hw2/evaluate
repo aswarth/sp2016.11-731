@@ -20,20 +20,6 @@ def preprocess(words):
 		words[i] = 'PUNC'
     return map(lambda x: stemmer.stem(x), words)
 
-def get_no_chunks(hyp, ref):
-	word_one_length = len(hyp)
-	word_two_length = len(ref)
-	table = [[0 for j in xrange(word_two_length + 1)] for i in xrange(word_one_length + 1)]
-	for i in xrange(1, wordOneLength + 1):
-		for j in xrange(1, wordTwoLength + 1):
-			if hyp[i-1] == ref[j-1]:
-				current[j] = prev[j-1]
-			else:
-				current[j] = min(prev[j-1], min(prev[j], current[j-1])) + 1
-		for k in xrange(0, wordTwoLength + 1):
-			prev[k] = current[k]
-    
-
 # DRY
 def word_matches(h, ref, alpha):
     rset = set(ref)
@@ -48,32 +34,6 @@ def word_matches(h, ref, alpha):
     # or sum(w in ref for w in f) # cast bool -> int
     # or sum(map(ref.__contains__, h)) # ugly!
  
-
-def compute_distance(hyp, ref, alpha):
-	wordOneLength = len(hyp)
-	wordTwoLength = len(ref)
-	if wordOneLength == 0:
-		return wordTwoLength
-	if wordTwoLength == 0:
-		return wordOneLength
-	prev = [i for i in xrange(wordTwoLength + 1)]
-	current = [0 for i in xrange(wordTwoLength + 1)]
-	for i in xrange(1, wordOneLength + 1):
-		current[0] = i
-		for j in xrange(1, wordTwoLength + 1):
-			if hyp[i-1] == ref[j-1]:
-				current[j] = prev[j-1]
-			else:
-				current[j] = min(prev[j-1], min(prev[j], current[j-1])) + 1
-		for k in xrange(0, wordTwoLength + 1):
-			prev[k] = current[k]
-	R = 1.0 - current[wordTwoLength]/(1.0 * wordTwoLength)
-	P = 1.0 - current[wordTwoLength]/(1.0 * wordOneLength) 
-    	denominator = P + alpha * R
-	if denominator == 0:
-		return 0
-    	return (P * R)/ denominator
-
 def main():
     parser = argparse.ArgumentParser(description='Evaluate translation hypotheses.')
     # PEP8: use ' and not " for strings
@@ -99,9 +59,16 @@ def main():
         ref = preprocess(ref)
 	h1 = preprocess(h1)
 	h2 = preprocess(h2)
+	if ' '.join(h1) == ' '.join(h2):
+		print 0
+		continue
 	h1_match = word_matches(h1, ref, alpha)
         h2_match = word_matches(h2, ref, alpha)
-        #h1_match = compute_distance(h1, ref, alpha)
+        #hyp_match = word_matches(h1, h2, alpha)
+	#if hyp_match > 0.8:
+	#	print 0
+	#	continue
+	#h1_match = compute_distance(h1, ref, alpha)
 	#h2_match = compute_distance(h2, ref, alpha)
 	print(-1 if h1_match > h2_match else # \begin{cases}
                 (0 if h1_match == h2_match
