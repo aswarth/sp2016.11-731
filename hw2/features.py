@@ -105,8 +105,8 @@ def write_to_file(output_file, features):
         fp.write(feature + '\n')
 
 def svm_train_and_predict(train_features, test_features):
-    write_to_file('svm_train.data', train_features)
-    write_to_file('svm_test.data', test_features)
+    write_to_file('svm_train.data.ngram5', train_features)
+    write_to_file('svm_test.data.ngram5', test_features)
 
 def get_counts(hyp, n):
     word_freqs = {}
@@ -131,6 +131,28 @@ def brevity_penalty(h, ref):
         return 1
     else:
         return math.exp(1 - r / c)
+
+def bleu_features(N, weights, h1, h2, ref):
+    local_features = []
+    h1_ngram_precision = []
+    h2_ngram_precision = []
+    for i in xrange(1, N):
+        ref_max_counts = get_counts(ref, i)
+        h1_ngram_precision.append(modified_ngram_precision(get_counts(h1, i), len(h1), ref_max_counts))
+        h2_ngram_precision.append(modified_ngram_precision(get_counts(h2, i), len(h2), ref_max_counts))
+        
+    local_features += h1_ngram_precision
+    local_features += h2_ngram_precision
+        
+    sh1 = math.fsum(w * math.log(precision) for w, precision in zip(weights, h1_ngram_precision) if precision)
+    sh2 = math.fsum(w * math.log(precision) for w, precision in zip(weights, h2_ngram_precision) if precision)
+
+    bp1 = brevity_penalty(h1, ref)
+    bp2 = brevity_penalty(h2, ref)
+        
+    local_features.append(bp1 * math.exp(sh1))
+    local_features.append(bp2 * math.exp(sh2))
+    return local_features
 
 def main():
     parser = argparse.ArgumentParser(description='Evaluate translation hypotheses.')
@@ -157,7 +179,8 @@ def main():
     instance_count = 0
     features = []
     training_size = 26208
-    weights = [0.25, 0.25, 0.25, 0.25]
+    N = 5
+    weights = [1.0/N for i in xrange(N)]
     for h1, h2, ref in islice(sentences(), opts.num_sentences):
         print 'Processing Sentence {}'.format(instance_count + 1)
         local_features = []
@@ -172,8 +195,11 @@ def main():
         
         local_features.append(h1_match)
         local_features.append(h2_match)
+        local_features.append(h1_match - h2_match)
         local_features.append(hyp_match)
         
+        local_features += bleu_features(N, weights, h1, h2, ref)
+
         ref = preprocess(ref)
         h1 = preprocess(h1)
         h2 = preprocess(h2)
@@ -184,6 +210,7 @@ def main():
         
         local_features.append(h1_match)
         local_features.append(h2_match)
+        local_features.append(h1_match - h2_match)
         local_features.append(hyp_match)
         
         h1_match = content_word_matches(h1, ref, alpha)
@@ -192,6 +219,7 @@ def main():
         
         local_features.append(h1_match)
         local_features.append(h2_match)
+        local_features.append(h1_match - h2_match)
         local_features.append(hyp_match)
         
         #'''
@@ -201,25 +229,10 @@ def main():
         
         local_features.append(h1_match)
         local_features.append(h2_match)
+        local_features.append(h1_match - h2_match)
         local_features.append(hyp_match)
-        h1_ngram_precision = []
-        h2_ngram_precision = []
-        for i in xrange(1, 5):
-            ref_max_counts = get_counts(ref, i)
-            h1_ngram_precision.append(modified_ngram_precision(get_counts(h1, i), len(h1), ref_max_counts))
-            h2_ngram_precision.append(modified_ngram_precision(get_counts(h2, i), len(h2), ref_max_counts))
         
-        local_features += h1_ngram_precision
-        local_features += h2_ngram_precision
-        
-        sh1 = math.fsum(w * math.log(precision) for w, precision in zip(weights, h1_ngram_precision) if precision)
-        sh2 = math.fsum(w * math.log(precision) for w, precision in zip(weights, h2_ngram_precision) if precision)
-
-        bp1 = brevity_penalty(h1, ref)
-        bp2 = brevity_penalty(h2, ref)
-        
-        local_features.append(bp1 * math.exp(sh1))
-        local_features.append(bp2 * math.exp(sh2))
+        local_features += bleu_features(N, weights, h1, h2, ref)
         
         feature_vector = ''
         for i in xrange(1, len(local_features) + 1):
