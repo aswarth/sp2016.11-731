@@ -11,7 +11,7 @@ import numpy as np
 parser = argparse.ArgumentParser(description='Simple phrase based decoder.')
 parser.add_argument('-i', '--input', dest='input', default='data/input', help='File containing sentences to translate (default=data/input)')
 parser.add_argument('-t', '--translation-model', dest='tm', default='data/tm', help='File containing translation model (default=data/tm)')
-parser.add_argument('-s', '--stack-size', dest='s', default=1, type=int, help='Maximum stack size (default=1)')
+parser.add_argument('-s', '--stack-size', dest='s', default=10, type=int, help='Maximum stack size (default=1)')
 parser.add_argument('-n', '--num_sentences', dest='num_sents', default=sys.maxint, type=int, help='Number of sentences to decode (default=no limit)')
 parser.add_argument('-l', '--language-model', dest='lm', default='data/lm', help='File containing ARPA-format language model (default=data/lm)')
 parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False,  help='Verbose mode (default=off)')
@@ -99,7 +99,7 @@ for f in input_sents:
                             (lm_state, word_logprob) = lm.score(lm_state, word)
                             logprob += word_logprob
                         logprob += lm.end(lm_state) if j == len(f) else 0.0
-                        #logprob += get_standard_normal(get_distortion_prob(h, phrase, i))     
+                        logprob += get_standard_normal(get_distortion_prob(h, phrase, i))     
                         new_hypothesis = hypothesis(logprob, lm_state, h, phrase, i)
                         if lm_state not in stacks[j] or stacks[j][lm_state].logprob < logprob: # second case is recombination
                             stacks[j][lm_state] = new_hypothesis 
@@ -138,7 +138,7 @@ for f in input_sents:
                                 lm_state = hyp.lm_state
                                 
                             logprob += lm.end(lm_state) if j == len(f) else 0.0
-                            #logprob += get_standard_normal(get_distortion_prob(hyp, temp.phrase, i))
+                            logprob += get_standard_normal(get_distortion_prob(hyp, temp.phrase, i))
                             if lm_state not in stacks[j] or stacks[j][lm_state].logprob < logprob: # second case is recombination
                                 stacks[j][lm_state] = hyp
     # find best translation by looking at the best scoring hypothesis

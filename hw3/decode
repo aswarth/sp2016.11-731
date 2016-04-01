@@ -9,7 +9,7 @@ from collections import namedtuple
 parser = argparse.ArgumentParser(description='Simple phrase based decoder.')
 parser.add_argument('-i', '--input', dest='input', default='data/input', help='File containing sentences to translate (default=data/input)')
 parser.add_argument('-t', '--translation-model', dest='tm', default='data/tm', help='File containing translation model (default=data/tm)')
-parser.add_argument('-s', '--stack-size', dest='s', default=1, type=int, help='Maximum stack size (default=1)')
+parser.add_argument('-s', '--stack-size', dest='s', default=5000, type=int, help='Maximum stack size (default=1)')
 parser.add_argument('-n', '--num_sentences', dest='num_sents', default=sys.maxint, type=int, help='Number of sentences to decode (default=no limit)')
 parser.add_argument('-l', '--language-model', dest='lm', default='data/lm', help='File containing ARPA-format language model (default=data/lm)')
 parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False,  help='Verbose mode (default=off)')
@@ -35,6 +35,7 @@ def update_coverage_vector(current_coverage_vector, start, end):
     for start in xrange(start, end):
         current_coverage_vector[start] = True
 
+mini = -sys.maxint
 for f in input_sents:
     # The following code implements a DP monotone decoding
     # algorithm (one that doesn't permute the target phrases).
@@ -43,6 +44,28 @@ for f in input_sents:
     # HINT: Generalize this so that stacks[i] contains translations
     # of any i words (remember to keep track of which words those
     # are, and to estimate future costs)
+    translation_scores = [[mini for j in xrange(len(f))] for i in xrange(len(f))]
+    min_computational_costs = [[mini for j in xrange(len(f))] for i in xrange(len(f))]
+    for i in xrange(len(f)):
+        for j in xrange(i+1, len(f) + 1):
+            if f[i:j] in tm:
+                for phrase in tm[f[i:j]]:
+                        translation_scores[i][j-1] = max(translation_scores[i][j-1], phrase.logprob)
+    #print translation_scores 
+    for i in xrange(len(f)):
+        min_computational_costs[i][i] = translation_scores[i][i]
+        
+    for i in xrange(len(f)):
+        k = 0
+        j = i + 1
+        while k < len(f) and j < len(f):
+            min_computational_costs[k][j] = translation_scores[k][j]
+            for m in xrange(k, j):                        
+                if j >= len(f):
+                    continue
+                min_computational_costs[k][j] = max(min_computational_costs[k][j], min_computational_costs[k][m] + min_computational_costs[m+1][j])    
+            k += 1
+            j += 1
     initial_hypothesis = hypothesis(0.0, lm.begin(), None, None, [False for i in xrange(len(f) + 1)])
     temp = 0
     stacks = [{} for _ in f] + [{}]
@@ -58,7 +81,8 @@ for f in input_sents:
                         temp = current_coverage_vector
                         #current_coverage_vector[j:k] = True
                         for phrase in tm[span]:
-                            logprob = h.logprob + phrase.logprob
+                            logprob = translation_scores[j][k-1]
+                            logprob += h.logprob + phrase.logprob
                             lm_state = h.lm_state
                             for word in phrase.english.split():
                                 (lm_state, word_logprob) = lm.score(lm_state, word)
