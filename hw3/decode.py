@@ -11,7 +11,7 @@ import numpy as np
 parser = argparse.ArgumentParser(description='Simple phrase based decoder.')
 parser.add_argument('-i', '--input', dest='input', default='data/input', help='File containing sentences to translate (default=data/input)')
 parser.add_argument('-t', '--translation-model', dest='tm', default='data/tm', help='File containing translation model (default=data/tm)')
-parser.add_argument('-s', '--stack-size', dest='s', default=1, type=int, help='Maximum stack size (default=1)')
+parser.add_argument('-s', '--stack-size', dest='s', default=10, type=int, help='Maximum stack size (default=1)')
 parser.add_argument('-n', '--num_sentences', dest='num_sents', default=sys.maxint, type=int, help='Number of sentences to decode (default=no limit)')
 parser.add_argument('-l', '--language-model', dest='lm', default='data/lm', help='File containing ARPA-format language model (default=data/lm)')
 parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False,  help='Verbose mode (default=off)')
@@ -42,11 +42,12 @@ def get_distortion_prob(h, phrase, i):
         return distortion + value 
 
 def get_standard_normal(prob):
-    return (1.0/2.5) * np.exp((-prob * prob)/2)
+    return np.log10(prob)
+    #return 0.4 * np.exp((-prob * prob)/2)
 
 for f in input_sents:
     count += 1
-    sys.stderr.write('Decoding Sentence %s\n' % (count))
+    #sys.stderr.write('Decoding Sentence %s ' % (count))
     # The following code implements a DP monotone decoding
     # algorithm (one that doesn't permute the target phrases).
     # Hence all hypotheses in stacks[i] represent translations of 
@@ -54,7 +55,7 @@ for f in input_sents:
     # HINT: Generalize this so that stacks[i] contains translations
     # of any i words (remember to keep track of which words those
     # are, and to estimate future costs)
-    '''
+    #'''
     translation_scores = [[mini for j in xrange(len(f))] for i in xrange(len(f))]
     min_computational_costs = [[mini for j in xrange(len(f))] for i in xrange(len(f))]
     for i in xrange(len(f)):
@@ -77,7 +78,7 @@ for f in input_sents:
                 min_computational_costs[k][j] = max(min_computational_costs[k][j], min_computational_costs[k][m] + min_computational_costs[m+1][j])    
             k += 1
             j += 1
-    '''       
+    #'''       
     #print min_computational_costs
     #continue
     #break 
@@ -99,12 +100,12 @@ for f in input_sents:
                             (lm_state, word_logprob) = lm.score(lm_state, word)
                             logprob += word_logprob
                         logprob += lm.end(lm_state) if j == len(f) else 0.0
-                        #logprob += get_standard_normal(get_distortion_prob(h, phrase, i))     
+                        #logprob += np.log10(get_standard_normal(get_distortion_prob(h, phrase, i)))     
                         new_hypothesis = hypothesis(logprob, lm_state, h, phrase, i)
                         if lm_state not in stacks[j] or stacks[j][lm_state].logprob < logprob: # second case is recombination
                             stacks[j][lm_state] = new_hypothesis 
                         temp = ''
-                        for k in xrange(10):
+                        for k in xrange(7):
                             queue = []
                             temp = h
                             flag = 0
@@ -116,6 +117,7 @@ for f in input_sents:
                                     break
                             if flag == 1 or not temp.predecessor:
                                 break
+                            #logprob = min_computational_costs[i][j-1]
                             logprob = temp.predecessor.logprob + phrase.logprob
                             lm_state = temp.predecessor.lm_state
                             for word in phrase.english.split(): 
@@ -138,18 +140,21 @@ for f in input_sents:
                                 lm_state = hyp.lm_state
                                 
                             logprob += lm.end(lm_state) if j == len(f) else 0.0
-                            #logprob += get_standard_normal(get_distortion_prob(hyp, temp.phrase, i))
+                            #logprob += np.log10(get_standard_normal(get_distortion_prob(hyp, temp.phrase, i)))
                             if lm_state not in stacks[j] or stacks[j][lm_state].logprob < logprob: # second case is recombination
                                 stacks[j][lm_state] = hyp
     # find best translation by looking at the best scoring hypothesis
     # on the last stack
     winner = max(stacks[-1].itervalues(), key=lambda h: h.logprob)
+    #sys.stderr.write(winner.logprob)
     #print winner.logprob
     
     def extract_english_recursive(h):
         return '' if h.predecessor is None else '%s%s ' % (extract_english_recursive(h.predecessor), h.phrase.english)
-    print extract_english_recursive(winner)
-
+    best_sentence = extract_english_recursive(winner)
+    #print best_sentence
+    #sys.stderr.write('%s|%s\n' % (winner.logprob, best_sentence))
+    print '{}|{}'.format(winner.logprob, best_sentence)
     if opts.verbose:
         def extract_tm_logprob(h):
             return 0.0 if h.predecessor is None else h.phrase.logprob + extract_tm_logprob(h.predecessor)

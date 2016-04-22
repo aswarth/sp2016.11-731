@@ -34,6 +34,32 @@ def word_matches(h, ref, alpha):
     # or sum(w in ref for w in f) # cast bool -> int
     # or sum(map(ref.__contains__, h)) # ugly!
  
+
+def compute_distance(hyp, ref, alpha):
+	wordOneLength = len(hyp)
+	wordTwoLength = len(ref)
+	if wordOneLength == 0:
+		return wordTwoLength
+	if wordTwoLength == 0:
+		return wordOneLength
+	prev = [i for i in xrange(wordTwoLength + 1)]
+	current = [0 for i in xrange(wordTwoLength + 1)]
+	for i in xrange(1, wordOneLength + 1):
+		current[0] = i
+		for j in xrange(1, wordTwoLength + 1):
+			if hyp[i-1] == ref[j-1]:
+				current[j] = prev[j-1]
+			else:
+				current[j] = min(prev[j-1], min(prev[j], current[j-1])) + 1
+		for k in xrange(0, wordTwoLength + 1):
+			prev[k] = current[k]
+	R = 1.0 - current[wordTwoLength]/(1.0 * wordTwoLength)
+	P = 1.0 - current[wordTwoLength]/(1.0 * wordOneLength) 
+    denominator = P + alpha * R
+	if denominator == 0:
+		return 0
+    return (P * R)/ denominator
+
 def main():
     parser = argparse.ArgumentParser(description='Evaluate translation hypotheses.')
     # PEP8: use ' and not " for strings

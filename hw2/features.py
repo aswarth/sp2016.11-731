@@ -2,6 +2,7 @@
 import argparse # optparse is deprecated
 from itertools import islice # slicing for iterators
 from nltk.stem.porter import *
+#from nltk.stem.snowball import SnowballStemmer
 from nltk.tokenize import word_tokenize
 import string
 import os
@@ -18,6 +19,7 @@ SVM_SUBSET_SELECT = os.path.join(SVM_TOOLS_HOME, "subset.py")
 SVM_FEAT_SELECT = os.path.join(SVM_TOOLS_HOME, "fselect.py")
 
 stemmer = PorterStemmer()
+#stemmer = SnowballStemmer("english")
 import sys
 reload(sys)
 sys.setdefaultencoding("utf-8")
