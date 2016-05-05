@@ -62,7 +62,8 @@ def process(train_source_file, train_target_file, dev_source_file, dev_target_fi
     hyper_params += source_lstm_forward.params + target_lstm.params[:-1] # Removing the last output
 
     tanh_layer = HiddenLayer(source_hidden_embedding, target_word_embedding, activation='tanh')
-    softmax_layer = HiddenLayer(target_hidden_embedding + source_hidden_embedding, vocab_target_size, activation='softmax')
+    # weighted_attention_vector + target_sentence_embedding + last encoded vector
+    softmax_layer = HiddenLayer(source_hidden_embedding + target_hidden_embedding, vocab_target_size, activation='softmax')
     hyper_params += softmax_layer.params
 
     # Getting the source and target embeddings
@@ -109,7 +110,7 @@ def process(train_source_file, train_target_file, dev_source_file, dev_target_fi
         
     def get_translations(source_sentences):
         translated_sentences = []
-        for i, sentence in enumerate(source_sentences):
+        for sentence in source_sentences:
             source_sentence = np.array(sentence).astype(np.int32)
             translated_so_far = [target_word_to_idx['<s>']]
             while True:
